@@ -1,5 +1,5 @@
-import type {Request, Response} from "express"
-import Medico from "../model/Medico.js";  
+import type { Request, Response } from "express"
+import Medico from "../model/Medico.js";
 import type { MedicoDTO } from "../interface/MedicoDTO.js";
 import MedicoRepository from "../repositories/MedicoRepository.js";
 
@@ -30,8 +30,8 @@ class MedicoController {
 
             // Validação simples dos campos obrigatórios da requisição
             if (!dadosMedico.nome || !dadosMedico.crm || !dadosMedico.especialidade || dadosMedico.valorConsulta === undefined) {
-                return res.status(400).json({ 
-                    mensagem: "Dados incompletos. Os campos nome, crm, especialidade e valorConsulta são obrigatórios." 
+                return res.status(400).json({
+                    mensagem: "Dados incompletos. Os campos nome, crm, especialidade e valorConsulta são obrigatórios."
                 });
             }
 
@@ -110,8 +110,8 @@ class MedicoController {
             const { nome, crm, especialidade, valorConsulta, situacao }: MedicoDTO = req.body;
 
             if (!nome || !crm || !especialidade || valorConsulta === undefined) {
-                return res.status(400).json({ 
-                    mensagem: "Todos os campos (nome, crm, especialidade, valorConsulta) são obrigatórios." 
+                return res.status(400).json({
+                    mensagem: "Todos os campos (nome, crm, especialidade, valorConsulta) são obrigatórios."
                 });
             }
 
@@ -121,8 +121,9 @@ class MedicoController {
                 especialidade,
                 valorConsulta,
                 situacao ?? true,
-                
+
             );
+            medico.setIdMedico(idMedico);
 
             const atualizado = await MedicoRepository.atualizarMedico(medico);
 
