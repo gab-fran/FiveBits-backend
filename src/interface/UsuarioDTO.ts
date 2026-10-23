@@ -23,3 +23,12 @@ export interface AuthResponseDTO {
     usuario?: UsuarioLogadoDTO;
     message?: string;
 }
+export interface AuthUser {
+    id: number;
+    nome: string;
+    email: string;
+    role: UsuarioRole;
+    situacao: boolean;
+    idPaciente: number | null;
+    idMedico: number | null;
+}

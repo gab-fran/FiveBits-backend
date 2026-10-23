@@ -1,8 +1,3 @@
-import { DatabaseModel } from "./DatabaseModel.js"; // Importa a classe de conexão
-import { type MedicoDTO } from "../interface/MedicoDTO.js"; // Importa a interface DTO do Médico
-
-const database = new DatabaseModel().pool; // Inicializa o pool
-
 class Medico {
     private idMedico: number = 0;
     private nome: string;
@@ -12,18 +7,18 @@ class Medico {
     private situacao: boolean = true;
 
     // Constructor da Classe Médico
-    constructor( 
+    constructor(
         _nome: string,
         _crm: string,
         _especialidade: string,
         _valorConsulta: number,
-        _situacao?: boolean // ? = Opcional
+        _situacao?: boolean, // ? = Opcional
     ) {
         this.nome = _nome;
         this.crm = _crm;
         this.especialidade = _especialidade;
         this.valorConsulta = _valorConsulta;
-        this.situacao = _situacao || false; // Opcional
+        this.situacao = _situacao ?? true; // Opcional
     }
 
     // Métodos GET e SET (Encapsulamento)
@@ -66,7 +61,7 @@ class Medico {
         return this.situacao;
     }
     public setSituacao(_situacao: boolean): void {
-        this.situacao = _situacao
+        this.situacao = _situacao;
     }
 }
 

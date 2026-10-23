@@ -1,8 +1,3 @@
-import { DatabaseModel } from "./DatabaseModel.js"; // Importa a classe de conexão
-import type { ConsultaDTO } from "../interface/ConsultaDTO.js"; // Importa a interface DTO da consulta
-
-const database = new DatabaseModel().pool; // Inicializa o pool
-
 class Consulta {
     private idConsulta: number = 0;
     private idPaciente: number = 0;
@@ -11,7 +6,7 @@ class Consulta {
     private status: string;
     private modalidade: string;
     private triagemSintomas: string;
-    private situacao: boolean = true
+    private situacao: boolean = true;
 
     // Constructor da Classe Consulta
     constructor(
@@ -21,15 +16,15 @@ class Consulta {
         _idPaciente?: number, // ? = Opcional
         _idMedico?: number, // ? = Opcional
         _status?: string, // ? = Opcional
-        _situacao?: boolean // ? = Opcional
+        _situacao?: boolean, // ? = Opcional
     ) {
         this.dataHora = _dataHora;
         this.idPaciente = _idPaciente || 0; // Opcional
         this.idMedico = _idMedico || 0; // Opcional
-        this.status = _status || ""; // Opcional
+        this.status = _status || ''; // Opcional
         this.modalidade = _modalidade;
         this.triagemSintomas = _triagemSintomas;
-        this.situacao = _situacao || false; // Opcional
+        this.situacao = _situacao ?? true; // Opcional
     }
 
     // Métodos GET e SET (Encapsulamento)
@@ -88,7 +83,6 @@ class Consulta {
     public setSituacao(_situacao: boolean): void {
         this.situacao = _situacao;
     }
-
 }
 
 export default Consulta;

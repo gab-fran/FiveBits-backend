@@ -6,6 +6,6 @@ export interface PacienteDTO {
     nome: string;
     cpf: string;
     telefone?: string;
-    dataNascimento: Date;
+    dataNascimento: string;
     situacao?: boolean;
-}
+}

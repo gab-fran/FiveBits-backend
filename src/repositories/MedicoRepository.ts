@@ -1,136 +1,59 @@
-import { type MedicoDTO } from "../interface/MedicoDTO.js";
-import { DatabaseModel } from "../model/DatabaseModel.js";
-import Medico from "../model/Medico.js";
-
-const database = new DatabaseModel().pool;
-
-export class MedicoRepository {
-     static async cadastrarMedico(MedicoRepository: MedicoDTO): Promise<boolean> {
-        try {
-            const queryInsertMedico = `CALL sp_cadastrar_medico($1, $2, $3, $4);`;
-
-            const respostaBD = await database.query(queryInsertMedico, [
-                MedicoRepository.nome.toUpperCase(),
-                MedicoRepository.crm,
-                MedicoRepository.especialidade,
-                MedicoRepository.valorConsulta
-            ]);
-
-            console.info(`Medico cadastrado com sucesso. ${respostaBD.command}`);
-            return true;
-        } catch (error) {
-            console.error(`Erro na consulta ao banco de dados. ${error}`);
-            return false;
-        }
+import type { MedicoDTO } from '../interface/MedicoDTO.js';
+import { pool } from '../model/DatabaseModel.js';
+import type { PoolClient } from 'pg';
+import type { MedicoInput } from '../validation/inputs.js';
+const columns =
+    'id_medico AS "idMedico", nome, crm, especialidade, valor_consulta::float8 AS "valorConsulta", situacao';
+export default class MedicoRepository {
+    static async listarMedicos(id?: number) {
+        return (
+            await pool.query<MedicoDTO>(
+                `SELECT ${columns} FROM medico WHERE situacao AND ($1::integer IS NULL OR id_medico=$1) ORDER BY nome`,
+                [id ?? null],
+            )
+        ).rows;
     }
-
-    // Lista todos os Médicos em ordem alfabética (Regra da Sprint 04)
-    static async listarMedicos(): Promise<Array<Medico> | null> {
-        try {
-            let listaMedicos: Array<Medico> = [];
-            // Regra da Sprint: Ordem Alfabética para entidades principais
-            const querySelectMedicos = `SELECT * FROM vw_medicos ORDER BY nome ASC;`;
-            const respostaBD = await database.query(querySelectMedicos);
-
-            respostaBD.rows.forEach((medicoBD: any) => {
-                const novo = new Medico(
-                    medicoBD.nome,
-                    medicoBD.crm,
-                    medicoBD.especialidade,
-                    medicoBD.valor_consulta,
-                    medicoBD.situacao
-                );
-
-                novo.setIdMedico(medicoBD.id_medico);
-                listaMedicos.push(novo);
-            });
-
-            return listaMedicos;
-        } catch (error) {
-            console.error(`Erro ao listar médicos: ${error}`);
-            return null;
-        }
-    }
-
-    // Lista um médico pelo ID
-    static async listarMedico(idMedico: number): Promise<Medico | null> {
-        try {
-            const querySelectMedico = `SELECT * FROM vw_medicos WHERE id_medico=$1;`;
-
-            const respostaBD = await database.query(querySelectMedico, [idMedico]);
-
-            const novoMedico: Medico = new Medico(
-                respostaBD.rows[0].nome,
-                respostaBD.rows[0].crm,
-                respostaBD.rows[0].especialidade,
-                respostaBD.rows[0].valor_consulta,
-                respostaBD.rows[0].situacao
-            );
-
-            novoMedico.setIdMedico(respostaBD.rows[0].id_medico);
-            novoMedico.setSituacao(respostaBD.rows[0].situacao);
-
-            return novoMedico;
-        } catch (error) {
-            console.error(`Erro ao buscar médico no banco de dados. ${error}`);
-            return null;
-        }
-    }
-
-    static async deletarMedico(idMedico: number): Promise<boolean> {
-        try {
-            const queryDeleteMedico = `CALL sp_deletar_medico($1);`;
-
-            const respostaBD = await database.query(queryDeleteMedico, [idMedico]);
-
-            if(respostaBD.rowCount != 0) {
-                console.info(`Medico removido com sucesso`);
-                return true;
-            }
-
-            return false;
-        } catch (error) {
-            console.error(`Erro ao remover Medico do banco de dados. ${error}`);
-            return false;
-        }
-    }
-    static async atualizarMedico(medico: Medico): Promise<boolean> {
-    let conexao: any;
-
-    try {
-        conexao = await database.connect(); 
-
-        const sql = `CALL sp_atualizar_medico($1, $2, $3, $4, $5);`;
-
-        const valores = [
-            medico.getIdMedico(),
-            medico.getNome(),
-            medico.getCrm(),
-            medico.getEspecialidade(),
-            medico.getValorConsulta()
-        ];
-
-        const medicoExistente = await conexao.query(
-            `SELECT 1 FROM medico WHERE id_medico = $1 AND situacao = TRUE`,
-            [medico.getIdMedico()]
+    static async listarMedico(id: number) {
+        return (
+            (
+                await pool.query<MedicoDTO>(
+                    `SELECT ${columns} FROM medico WHERE id_medico=$1 AND situacao`,
+                    [id],
+                )
+            ).rows[0] ?? null
         );
-
-        if (medicoExistente.rowCount === 0) {
-            return false;
-        }
-
-        await conexao.query(sql, valores);
-
-        return true;
-
-    } catch (error) {
-        console.error(`[MODEL ERROR]: Falha ao atualizar médico: ${error}`);
-        throw error;
-    } finally {
-        if (conexao) {
-            conexao.release();
-        }
-                 }
-         }
+    }
+    static async cadastrarMedico(data: MedicoInput, client: PoolClient) {
+        const result = await client.query<{ id_medico: number }>(
+            'INSERT INTO medico(nome,crm,especialidade,valor_consulta) VALUES($1,$2,$3,$4) RETURNING id_medico',
+            [data.nome, data.crm, data.especialidade, data.valorConsulta],
+        );
+        return result.rows[0]!.id_medico;
+    }
+    static async atualizarMedico(id: number, data: MedicoInput) {
+        return (
+            (
+                await pool.query(
+                    'UPDATE medico SET nome=$2,crm=$3,especialidade=$4,valor_consulta=$5 WHERE id_medico=$1 AND situacao RETURNING id_medico',
+                    [
+                        id,
+                        data.nome,
+                        data.crm,
+                        data.especialidade,
+                        data.valorConsulta,
+                    ],
+                )
+            ).rowCount === 1
+        );
+    }
+    static async deletarMedico(id: number, client: PoolClient) {
+        return (
+            (
+                await client.query(
+                    'UPDATE medico SET situacao=false WHERE id_medico=$1 AND situacao RETURNING id_medico',
+                    [id],
+                )
+            ).rowCount === 1
+        );
+    }
 }
-export default MedicoRepository;

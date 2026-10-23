@@ -13,13 +13,13 @@ class Paciente {
         _cpf: string,
         _dataNascimento: Date,
         _telefone?: string, // ? = Opcional
-        _situacao?: boolean // ? = Opcional
+        _situacao?: boolean, // ? = Opcional
     ) {
         this.nome = _nome;
         this.cpf = _cpf;
-        this.telefone = _telefone || ""; // Opcional
+        this.telefone = _telefone || ''; // Opcional
         this.dataNascimento = _dataNascimento;
-        this.situacao = _situacao || false; // Opcional
+        this.situacao = _situacao ?? true; // Opcional
     }
 
     // Métodos GET e SET (Encapsulamento)
@@ -64,7 +64,6 @@ class Paciente {
     public setSituacao(_situacao: boolean): void {
         this.situacao = _situacao;
     }
-
 }
 
 export default Paciente;

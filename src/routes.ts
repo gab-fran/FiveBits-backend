@@ -1,19 +1,28 @@
-import type { Request, Response } from "express";
-import { Router } from "express";
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 // Importa o controller de cada classe
-import PacienteController from "./controller/PacienteController.js";
-import MedicoController from "./controller/MedicoController.js";
-import ConsultaController from "./controller/ConsultaController.js";
-import { Auth } from "./middlewares/Auth.js";
-import { AuthController } from "./controller/AuthController.js";
+import PacienteController from './controller/PacienteController.js';
+import MedicoController from './controller/MedicoController.js';
+import ConsultaController from './controller/ConsultaController.js';
+import { Auth } from './middlewares/Auth.js';
+import { AuthController } from './controller/AuthController.js';
+
+import {
+    roles,
+    pacienteAccess,
+    medicoAccess,
+    consultaAccess,
+} from './middlewares/authorization.js';
 
 const router = Router();
 
 /**
  * Rota raiz da API para teste de conexão
  */
-router.get("/api", (req: Request, res: Response) => {
-    res.status(200).json({ mensagem: "Olá, seja bem-vindo ao sistema MedFlow!" });
+router.get('/api', (req: Request, res: Response) => {
+    res.status(200).json({
+        mensagem: 'Olá, seja bem-vindo ao sistema MedFlow!',
+    });
 });
 
 /**
@@ -22,39 +31,97 @@ router.get("/api", (req: Request, res: Response) => {
  */
 
 // Retorna a lista com todos os pacientes (Ordem Alfabética)
-router.get("/api/pacientes", Auth.verifyToken ,PacienteController.todos);
+router.get(
+    '/api/pacientes',
+    Auth.verifyToken,
+    roles('ADMIN', 'PACIENTE'),
+    PacienteController.todos,
+);
 // Insere um novo paciente no banco de dados (rota pública para registro)
-router.post("/api/pacientes", PacienteController.novo);
+router.post('/api/pacientes', PacienteController.novo);
 // Retorna o paciente pelo ID
-router.get("/api/pacientes/:idPaciente", Auth.verifyToken ,PacienteController.paciente);
+router.get(
+    '/api/pacientes/:idPaciente',
+    Auth.verifyToken,
+    pacienteAccess,
+    PacienteController.paciente,
+);
 // Deleta o paciente pelo ID
-router.delete("/api/pacientes/:idPaciente", Auth.verifyToken ,PacienteController.remover);
+router.delete(
+    '/api/pacientes/:idPaciente',
+    Auth.verifyToken,
+    roles('ADMIN'),
+    PacienteController.remover,
+);
 // Atualiza um paciente pelo ID
-router.put("/api/pacientes/:idPaciente", Auth.verifyToken ,PacienteController.atualizar);
-
+router.put(
+    '/api/pacientes/:idPaciente',
+    Auth.verifyToken,
+    pacienteAccess,
+    PacienteController.atualizar,
+);
 
 // Retorna a lista com todos os médicos (Ordem Alfabética)
-router.get("/api/medicos", Auth.verifyToken ,MedicoController.todos);
+router.get('/api/medicos', Auth.verifyToken, MedicoController.todos);
 // Insere um novo médico no banco de dados
-router.post("/api/medicos", Auth.verifyToken ,MedicoController.novo);
+router.post(
+    '/api/medicos',
+    Auth.verifyToken,
+    roles('ADMIN'),
+    MedicoController.novo,
+);
 // Retorna o médico pelo ID
-router.get("/api/medicos/:idMedico", Auth.verifyToken ,MedicoController.medico);
+router.get(
+    '/api/medicos/:idMedico',
+    Auth.verifyToken,
+    medicoAccess,
+    MedicoController.medico,
+);
 // Deleta o médico pelo ID
-router.delete("/api/medicos/:idMedico", Auth.verifyToken ,MedicoController.remover);
+router.delete(
+    '/api/medicos/:idMedico',
+    Auth.verifyToken,
+    roles('ADMIN'),
+    MedicoController.remover,
+);
 // Atualiza um médico pelo ID
-router.put("/api/medicos/:idMedico", Auth.verifyToken ,MedicoController.atualizar);
+router.put(
+    '/api/medicos/:idMedico',
+    Auth.verifyToken,
+    roles('ADMIN'),
+    MedicoController.atualizar,
+);
 
 // Retorna a lista com todas as consultas
-router.get("/api/consultas", Auth.verifyToken ,ConsultaController.todos);
+router.get('/api/consultas', Auth.verifyToken, ConsultaController.todos);
 // Cadastra uma nova consulta
-router.post("/api/consultas", Auth.verifyToken ,ConsultaController.novo);
+router.post(
+    '/api/consultas',
+    Auth.verifyToken,
+    roles('ADMIN', 'PACIENTE'),
+    ConsultaController.novo,
+);
 // Retorna a consulta pelo ID
-router.get("/api/consultas/:idConsulta", Auth.verifyToken ,ConsultaController.consulta);
+router.get(
+    '/api/consultas/:idConsulta',
+    Auth.verifyToken,
+    consultaAccess,
+    ConsultaController.consulta,
+);
 // Deleta uma consulta pelo ID
-router.delete("/api/consultas/:idConsulta", Auth.verifyToken ,ConsultaController.remover);
+router.delete(
+    '/api/consultas/:idConsulta',
+    Auth.verifyToken,
+    consultaAccess,
+    ConsultaController.remover,
+);
 // Atualiza uma consulta pelo ID
-router.put("/api/consultas/:idConsulta",  Auth.verifyToken ,ConsultaController.atualizar);
-
+router.put(
+    '/api/consultas/:idConsulta',
+    Auth.verifyToken,
+    consultaAccess,
+    ConsultaController.atualizar,
+);
 
 router.post('/api/login', AuthController.login);
 

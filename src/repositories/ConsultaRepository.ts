@@ -1,192 +1,126 @@
-import Consulta from "../model/Consulta.js";
-import { DatabaseModel } from "../model/DatabaseModel.js";
-import type { ConsultaDTO } from "../interface/ConsultaDTO.js";
-
-
-const database = new DatabaseModel().pool; 
-
-
-
-export default class ConsultaRepository 
-{
-    // Cadastra uma Consulta no banco de dados
-    static async cadastrarConsulta(Consulta: ConsultaDTO): Promise<boolean> {
-        try {
-            const queryInsertConsulta = `CALL sp_agendar_consulta($1, $2, $3, $4, $5, $6);`;
-
-            const valores = [
-                Consulta.paciente.idPaciente,
-                Consulta.medico.idMedico,
-                // garante que seja timestamp compatível
-                Consulta.dataHora ? new Date(Consulta.dataHora) : null,
-                Consulta.modalidade,
-                Consulta.triagemSintomas,
-                Consulta.status ?? 'Pendente'
-            ];
-
-            // A procedure lança exceções em caso de erro (FK, conflito, etc.).
-            await database.query(queryInsertConsulta, valores);
-
-            console.info(`Consulta agendada com sucesso.`);
-            return true;
-        } catch (error) {
-            console.error(`Erro na consulta ao banco de dados. ${error}`);
-            return false;
-        }
+import type { AuthUser } from '../interface/UsuarioDTO.js';
+import { pool } from '../model/DatabaseModel.js';
+import type { PoolClient } from 'pg';
+import type { ConsultaInput } from '../validation/inputs.js';
+interface ConsultaRow {
+    id_consulta: number;
+    id_paciente: number;
+    id_medico: number;
+    data_hora: Date;
+    duracao_minutos: number;
+    status: string;
+    modalidade: string;
+    triagem_sintomas: string;
+    situacao: boolean;
+    paciente_nome: string;
+    paciente_cpf: string;
+    paciente_telefone: string | null;
+    paciente_data_nascimento: string;
+    paciente_situacao: boolean;
+    medico_nome: string;
+    medico_crm: string;
+    medico_especialidade: string;
+    medico_valor_consulta: string;
+    medico_situacao: boolean;
+}
+function map(row: ConsultaRow) {
+    return {
+        idConsulta: row.id_consulta,
+        dataHora: row.data_hora.toISOString(),
+        duracaoMinutos: row.duracao_minutos,
+        status: row.status,
+        modalidade: row.modalidade,
+        triagemSintomas: row.triagem_sintomas,
+        situacao: row.situacao,
+        paciente: {
+            idPaciente: row.id_paciente,
+            nomePaciente: row.paciente_nome,
+            cpf: row.paciente_cpf,
+            telefone: row.paciente_telefone ?? '',
+            dataNascimento: row.paciente_data_nascimento,
+            situacao: row.paciente_situacao,
+        },
+        medico: {
+            idMedico: row.id_medico,
+            nomeMedico: row.medico_nome,
+            crm: row.medico_crm,
+            especialidade: row.medico_especialidade,
+            valorConsulta: Number(row.medico_valor_consulta),
+            situacao: row.medico_situacao,
+        },
+    };
+}
+export default class ConsultaRepository {
+    static async listarConsultas(user: AuthUser) {
+        return (
+            await pool.query<ConsultaRow>(
+                `SELECT * FROM vw_consultas_detalhes WHERE ($1='ADMIN' OR ($1='PACIENTE' AND id_paciente=$2) OR ($1='MEDICO' AND id_medico=$3)) ORDER BY paciente_nome,medico_nome`,
+                [user.role, user.idPaciente, user.idMedico],
+            )
+        ).rows.map(map);
     }
-
-    // Lista todas as Consultas com dados relacionados de Paciente e Médico
-    static async listarConsultas(): Promise<Array<ConsultaDTO> | null> {
-        try {
-            let listaConsultas: Array<ConsultaDTO> = [];
-            const querySelectConsulta = `
-                SELECT *
-                FROM vw_consultas_detalhes
-                ORDER BY paciente_nome ASC, medico_nome ASC;
-            `;
-            const respostaBD = await database.query(querySelectConsulta);
-
-            respostaBD.rows.forEach((consultaBD) => {
-                const novo: ConsultaDTO = {
-                    idConsulta: consultaBD.id_consulta,
-                    dataHora: new Date(consultaBD.data_hora),
-                    status: consultaBD.status,
-                    modalidade: consultaBD.modalidade,
-                    triagemSintomas: consultaBD.triagem_sintomas,
-                    situacao: consultaBD.situacao,
-                    paciente: {
-                        idPaciente: consultaBD.id_paciente,
-                        nomePaciente: consultaBD.paciente_nome,
-                        cpf: consultaBD.paciente_cpf,
-                        telefone: consultaBD.paciente_telefone || "",
-                        dataNascimento: new Date(consultaBD.paciente_data_nascimento),
-                        situacao: consultaBD.paciente_situacao
-                    },
-                    medico: {
-                        idMedico: consultaBD.id_medico,
-                        nomeMedico: consultaBD.medico_nome,
-                        crm: consultaBD.medico_crm,
-                        especialidade: consultaBD.medico_especialidade,
-                        valorConsulta: Number(consultaBD.medico_valor_consulta),
-                        situacao: consultaBD.medico_situacao
-                    }
-                };
-
-                listaConsultas.push(novo);
-            });
-
-            return listaConsultas;
-        } catch (error) {
-            console.error(`Erro ao listar consultas: ${error}`);
-            return null;
-        }
+    static async listarConsulta(id: number, user: AuthUser) {
+        const row = (
+            await pool.query<ConsultaRow>(
+                `SELECT * FROM vw_consultas_detalhes WHERE id_consulta=$1 AND ($2='ADMIN' OR ($2='PACIENTE' AND id_paciente=$3) OR ($2='MEDICO' AND id_medico=$4))`,
+                [id, user.role, user.idPaciente, user.idMedico],
+            )
+        ).rows[0];
+        return row ? map(row) : null;
     }
-
-    // Lista uma consulta pelo ID com dados relacionados de Paciente e Médico
-    static async listarConsulta(idConsulta: number): Promise<ConsultaDTO | null> {
-        try {
-            const querySelectConsulta = `
-                SELECT *
-                FROM vw_consultas_detalhes
-                WHERE id_consulta = $1;
-            `;
-
-            const respostaBD = await database.query(querySelectConsulta, [idConsulta]);
-
-            if (respostaBD.rows.length === 0) {
-                return null;
-            }
-
-            const consultaBD = respostaBD.rows[0];
-
-            const consulta: ConsultaDTO = {
-                idConsulta: consultaBD.id_consulta,
-                dataHora: new Date(consultaBD.data_hora),
-                status: consultaBD.status,
-                modalidade: consultaBD.modalidade,
-                triagemSintomas: consultaBD.triagem_sintomas,
-                situacao: consultaBD.situacao,
-                paciente: {
-                    idPaciente: consultaBD.id_paciente,
-                    nomePaciente: consultaBD.paciente_nome,
-                    cpf: consultaBD.paciente_cpf,
-                    telefone: consultaBD.paciente_telefone || "",
-                    dataNascimento: new Date(consultaBD.paciente_data_nascimento),
-                    situacao: consultaBD.paciente_situacao
-                },
-                medico: {
-                    idMedico: consultaBD.id_medico,
-                    nomeMedico: consultaBD.medico_nome,
-                    crm: consultaBD.medico_crm,
-                    especialidade: consultaBD.medico_especialidade,
-                    valorConsulta: Number(consultaBD.medico_valor_consulta),
-                    situacao: consultaBD.medico_situacao
-                }
-            };
-
-            return consulta;
-        } catch (error) {
-            console.error(`Erro ao buscar consulta no banco de dados. ${error}`);
-            return null;
-        }
-    }
-
-    static async deletarConsulta(idConsulta: number): Promise<boolean> {
-        try {
-            const queryDeleteConsulta = `CALL sp_cancelar_consulta($1);`;
-
-            await database.query(queryDeleteConsulta, [idConsulta]);
-
-            console.info(`Consulta removida com sucesso`);
-            return true;
-        } catch (error) {
-            console.error(`Erro ao remover Consulta do banco de dados. ${error}`);
-            return false;
-        }
-    }
-    static async atualizarConsulta(consulta: Consulta): Promise<boolean> {
-    let conexao: any;
-
-    try {
-        conexao = await database.connect(); 
-
-        const sql = `CALL sp_atualizar_consulta($1, $2, $3, $4, $5, $6);`;
-
-        const valores = [
-            // 1: id_consulta
-            consulta.getIdConsulta(),
-            // 2: id_medico (pode ser null para manter)
-            consulta.getIdMedico() || null,
-            // 3: status (pode ser null)
-            consulta.getStatus() || null,
-            // 4: data_hora (pode ser null)
-            consulta.getDataHora() || null,
-            // 5: modalidade (pode ser null)
-            consulta.getModalidade() || null,
-            // 6: triagem_sintomas (pode ser null)
-            consulta.getTriagemSintomas() || null
-        ];
-
-        const consultaExistente = await conexao.query(
-            `SELECT 1 FROM consulta WHERE id_consulta = $1 AND situacao = TRUE`,
-            [consulta.getIdConsulta()]
+    static async lock(client: PoolClient, id: number) {
+        return (
+            (
+                await client.query<{
+                    id_paciente: number;
+                    id_medico: number;
+                    data_hora: Date;
+                    duracao_minutos: number;
+                    status: string;
+                    situacao: boolean;
+                }>('SELECT * FROM consulta WHERE id_consulta=$1 FOR UPDATE', [
+                    id,
+                ])
+            ).rows[0] ?? null
         );
-
-        if (consultaExistente.rowCount === 0) {
-            return false;
-        }
-
-        await conexao.query(sql, valores);
-
-        return true;
-
-    } catch (error) {
-        console.error(`[MODEL ERROR]: Falha ao atualizar consulta no banco: ${error}`);
-        throw error;
-    } finally {
-        if (conexao) {
-            conexao.release();
-        }
     }
+    static async cadastrarConsulta(data: ConsultaInput, client: PoolClient) {
+        const result = await client.query<{ id_consulta: number }>(
+            `INSERT INTO consulta(id_paciente,id_medico,data_hora,status,modalidade,triagem_sintomas,duracao_minutos) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id_consulta`,
+            [
+                data.idPaciente,
+                data.idMedico,
+                data.dataHora,
+                data.status,
+                data.modalidade,
+                data.triagemSintomas,
+                data.duracaoMinutos,
+            ],
+        );
+        return result.rows[0]!.id_consulta;
+    }
+    static async atualizarConsulta(
+        id: number,
+        data: ConsultaInput,
+        client: PoolClient,
+    ) {
+        await client.query(
+            "UPDATE consulta SET id_medico=$2,data_hora=$3,status=$4,modalidade=$5,triagem_sintomas=$6,duracao_minutos=$7,situacao=($4<>'Cancelado') WHERE id_consulta=$1",
+            [
+                id,
+                data.idMedico,
+                data.dataHora,
+                data.status,
+                data.modalidade,
+                data.triagemSintomas,
+                data.duracaoMinutos,
+            ],
+        );
+    }
+    static async deletarConsulta(id: number, client: PoolClient) {
+        await client.query(
+            "UPDATE consulta SET status='Cancelado',situacao=false WHERE id_consulta=$1",
+            [id],
+        );
     }
 }

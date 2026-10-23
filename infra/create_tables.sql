@@ -1,14 +1,4 @@
--- ==========================================
--- 1. LIMPEZA DO BANCO DE DADOS (DROPS)
--- A ordem deve respeitar as dependências (tabelas com FKs primeiro)
--- ==========================================
-DROP TABLE IF EXISTS Consulta;
-DROP TABLE IF EXISTS Usuario;
-DROP TABLE IF EXISTS Medico;
-DROP TABLE IF EXISTS Paciente;
-
-
--- ==========================================
+-- Baseline for an EMPTY database. Existing databases must use migrations.
 -- 2. CRIAÇÃO DAS TABELAS (DDL)
 -- ==========================================
 

@@ -27,30 +27,10 @@ FROM Medico
 WHERE situacao = TRUE;
 
 -- 3. View para Detalhes de Consultas Ativas
-CREATE OR REPLACE VIEW vw_consultas_detalhes AS
-SELECT
-    c.id_consulta,
-    c.data_hora,
-    c.modalidade,
-    c.triagem_sintomas,
-    c.status,
-    c.situacao,
-    c.id_paciente,
-    c.id_medico,
-    p.nome AS paciente_nome,
-    p.cpf AS paciente_cpf,
-    p.telefone AS paciente_telefone,
-    p.data_nascimento AS paciente_data_nascimento,
-    p.situacao AS paciente_situacao,
-    m.nome AS medico_nome,
-    m.crm AS medico_crm,
-    m.especialidade AS medico_especialidade,
-    m.valor_consulta AS medico_valor_consulta,
-    m.situacao AS medico_situacao
-FROM Consulta c
-JOIN Paciente p ON p.id_paciente = c.id_paciente AND p.situacao = TRUE
-JOIN Medico m ON m.id_medico = c.id_medico AND m.situacao = TRUE
-WHERE c.situacao = TRUE;
+CREATE OR REPLACE VIEW vw_consultas_detalhes AS SELECT c.*,p.nome paciente_nome,p.cpf paciente_cpf,p.telefone paciente_telefone,
+ p.data_nascimento paciente_data_nascimento,p.situacao paciente_situacao,m.nome medico_nome,m.crm medico_crm,
+ m.especialidade medico_especialidade,m.valor_consulta medico_valor_consulta,m.situacao medico_situacao
+ FROM consulta c JOIN paciente p USING(id_paciente) JOIN medico m USING(id_medico) WHERE c.situacao;
 
 -- 4. View Geral de Usuários (sem a coluna de senha por motivos de segurança)
 CREATE OR REPLACE VIEW vw_usuarios AS

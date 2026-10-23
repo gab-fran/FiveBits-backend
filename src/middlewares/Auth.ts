@@ -1,52 +1,57 @@
 import jwt from 'jsonwebtoken';
-import { type Request, type Response, type NextFunction } from 'express';
-
-const SECRET = process.env.JWT_SECRET || 'bananinha';
-
-interface JwtPayload {
-    id: number;
-    nome: string;
-    email: string;
-    role: string;
-    exp: number;
-}
-
-export class Auth {
-    /**
-     * Middleware de validação do token JWT nas rotas protegidas
-     */
-    static verifyToken(req: Request, res: Response, next: NextFunction) {
-        const token = req.headers['x-access-token'] as string;
-
-        if (!token) {
-            return res.status(401).json({ message: "Token não informado", auth: false });
+import type { RequestHandler } from 'express';
+import { jwtSecret } from '../config/security.js';
+import { AppError } from '../errors/AppError.js';
+import { UsuarioRepository } from '../repositories/UsuarioRepository.js';
+import type { AuthUser } from '../interface/UsuarioDTO.js';
+declare global {
+    namespace Express {
+        interface Request {
+            usuario?: AuthUser;
         }
-
-        jwt.verify(token, SECRET, (err, decoded) => {
-            if (err) {
-                if (err.name === 'TokenExpiredError') {
-                    return res.status(401).json({ message: "Token expirado, faça o login novamente", auth: false });
-                }
-                return res.status(401).json({ message: "Token inválido, faça o login", auth: false });
-            }
-
-            if (!decoded) {
-                return res.status(401).json({ message: "Token inválido, faça o login", auth: false });
-            }
-
-            const { exp, id } = decoded as JwtPayload;
-
-            if (!exp || !id) {
-                return res.status(401).json({ message: "Token inválido, faça o login", auth: false });
-            }
-
-            const currentTime = Math.floor(Date.now() / 1000);
-            if (currentTime > exp) {
-                return res.status(401).json({ message: "Token expirado, faça o login novamente", auth: false });
-            }
-
-            req.headers['userId'] = String(id);
-            next();
-        });
     }
+}
+export class Auth {
+    static verifyToken: RequestHandler = async (req, _res, next) => {
+        const token = req.headers['x-access-token'];
+        if (typeof token !== 'string' || !token)
+            throw new AppError(
+                401,
+                'NAO_AUTENTICADO',
+                'Faça login para continuar.',
+            );
+        let id: number;
+        try {
+            const payload = jwt.verify(token, jwtSecret(), {
+                algorithms: ['HS256'],
+                issuer: 'medflow-api',
+                audience: 'medflow-web',
+            });
+            if (
+                typeof payload === 'string' ||
+                !payload.exp ||
+                typeof payload.sub !== 'string' ||
+                !/^[1-9]\d*$/.test(payload.sub)
+            )
+                throw new Error();
+            id = Number(payload.sub);
+            if (!Number.isSafeInteger(id) || id > 2147483647) throw new Error();
+        } catch {
+            throw new AppError(
+                401,
+                'TOKEN_INVALIDO',
+                'Sessão inválida ou expirada. Faça login novamente.',
+            );
+        }
+        const user = await new UsuarioRepository().findById(id);
+        if (!user?.situacao)
+            throw new AppError(
+                401,
+                'CONTA_INATIVA',
+                'Conta indisponível. Faça login novamente.',
+            );
+        const { senha: _senha, ...safe } = user;
+        req.usuario = safe;
+        next();
+    };
 }

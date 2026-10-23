@@ -1,43 +1,57 @@
-import { DatabaseModel } from "../model/DatabaseModel.js";
-import type { UsuarioRole } from "../interface/UsuarioDTO.js";
-
-// Interface para tipar o retorno do usuário no banco
+import { pool } from '../model/DatabaseModel.js';
+import type { PoolClient } from 'pg';
+export type Role = 'ADMIN' | 'MEDICO' | 'PACIENTE';
 export interface UsuarioAutenticacao {
     id: number;
     nome: string;
     email: string;
-    senha?: string;
-    role: UsuarioRole;
+    senha: string;
+    role: Role;
     situacao: boolean;
+    idPaciente: number | null;
+    idMedico: number | null;
 }
-
+const select = `SELECT u.id_usuario AS id, COALESCE(p.nome,m.nome,'Administrador') AS nome,
+ u.email,u.senha,u.role, (u.situacao AND COALESCE(p.situacao,true) AND COALESCE(m.situacao,true)) AS situacao,
+ u.id_paciente AS "idPaciente",u.id_medico AS "idMedico" FROM usuario u
+ LEFT JOIN paciente p ON p.id_paciente=u.id_paciente LEFT JOIN medico m ON m.id_medico=u.id_medico`;
 export class UsuarioRepository {
-    private pool = new DatabaseModel().pool;
-
-    /**
-     * Busca o registro de autenticação pelo e-mail na view vw_autenticacao
-     * @param email Email do usuário
-     * @returns Dados do usuário se encontrado, ou null
-     */
-    async findByEmail(email: string): Promise<UsuarioAutenticacao | null> {
-        const query = `
-            SELECT
-                id,
-                nome,
+    async findByEmail(email: string) {
+        return (
+            (
+                await pool.query<UsuarioAutenticacao>(
+                    `${select} WHERE lower(u.email)=$1`,
+                    [email],
+                )
+            ).rows[0] ?? null
+        );
+    }
+    async findById(id: number) {
+        return (
+            (
+                await pool.query<UsuarioAutenticacao>(
+                    `${select} WHERE u.id_usuario=$1`,
+                    [id],
+                )
+            ).rows[0] ?? null
+        );
+    }
+    async create(
+        client: PoolClient,
+        email: string,
+        hash: string,
+        role: 'MEDICO' | 'PACIENTE',
+        id: number,
+    ) {
+        await client.query(
+            'INSERT INTO usuario(email,senha,role,id_paciente,id_medico) VALUES($1,$2,$3,$4,$5)',
+            [
                 email,
-                senha,
+                hash,
                 role,
-                situacao
-            FROM vw_autenticacao
-            WHERE email = $1;
-        `;
-
-        const result = await this.pool.query(query, [email]);
-
-        if (result.rowCount === 0) {
-            return null;
-        }
-
-        return result.rows[0] as UsuarioAutenticacao;
+                role === 'PACIENTE' ? id : null,
+                role === 'MEDICO' ? id : null,
+            ],
+        );
     }
 }
