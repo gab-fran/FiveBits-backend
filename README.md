@@ -7,6 +7,8 @@ Node 24, npm e PostgreSQL 17. A API mantém Express/TypeScript e PostgreSQL; nã
 
 ```sh
 npm ci
+cp .env.example .env
+# Preencha a conexão PostgreSQL e JWT_SECRET no .env.
 npm run build
 # Configure DB_HOST, DB_PORT, DB_USER, DB_PASSWORD e DB_NAME no ambiente ou .env ignorado.
 # Configure JWT_SECRET com pelo menos 32 bytes aleatórios; não use uma senha humana.
