@@ -18,6 +18,22 @@ npm start
 
 Para banco **vazio**, execute `psql -v ON_ERROR_STOP=1 -d <banco> -f infra/init.sql` com a autenticação PostgreSQL configurada. O script não apaga tabelas e falha caso elas já existam. Crie o primeiro administrador com `ADMIN_EMAIL` e `ADMIN_PASSWORD` definidos no ambiente e `npm run create-admin`; o script não imprime as credenciais. Remova essas variáveis após o uso.
 
+## Init completo em arquivo único
+
+`infra/init.sql` contém todo o schema: tabelas, constraints, índices, views, funções, triggers, procedures e registro das quatro migrações. É SQL PostgreSQL independente, sem comandos de inclusão de outros arquivos. Execute o arquivo inteiro em um banco vazio; a criação ocorre em uma única transação.
+
+```sh
+# Configure PGHOST, PGPORT, PGUSER e a autenticação do PostgreSQL.
+createdb fivebits
+psql -v ON_ERROR_STOP=1 -d fivebits -f infra/init.sql
+```
+
+No pgAdmin, crie um banco vazio, abra o Query Tool conectado a ele e execute todo o conteúdo de `infra/init.sql`. O script não cria o database nem usuários do PostgreSQL. Se o editor mantiver uma transação abortada após um erro, execute `ROLLBACK;` antes de tentar novamente.
+
+Para criar o administrador da aplicação, configure as variáveis `DB_*`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` e execute `npm run create-admin`. Não são inseridos pacientes, médicos ou credenciais demonstrativas.
+
+O initializer é gerado dos arquivos SQL versionados para preservar as mesmas regras das migrações. Após alterar esses arquivos, execute `npm run build:init` e versione também o `infra/init.sql` regenerado. Bancos existentes continuam usando o fluxo de migração abaixo.
+
 ## Migrar um banco existente
 
 Faça backup e execute em janela de manutenção, após verificar os dados. Não execute `init.sql` em banco existente.

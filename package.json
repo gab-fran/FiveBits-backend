@@ -11,7 +11,8 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "create-admin": "npm run build && node scripts/create-admin.mjs",
-    "migrate-passwords": "npm run build && node scripts/migrate-passwords.mjs"
+    "migrate-passwords": "npm run build && node scripts/migrate-passwords.mjs",
+    "build:init": "node scripts/build-init.mjs"
   },
   "repository": {
     "type": "git",
